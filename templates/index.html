@@ -1,0 +1,134 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Feedback Form</title>
+    <link rel="stylesheet" href="static/style.css">
+       
+</head>
+<body>
+    <div class="form-container">
+        <h1 class="form-title">📝 Feedback Form</h1>
+        <p class="form-subtitle">We'd love to hear your thoughts!</p>
+
+        <form id="feedbackForm">
+            <div class="form-group">
+                <label class="form-label required-field" for="name">Name</label>
+                <input type="text" id="name" name="name" class="form-input" required placeholder="Enter your full name">
+            </div>
+
+            <div class="form-group">
+                <label class="form-label required-field" for="email">Email</label>
+                <input type="email" id="email" name="email" class="form-input" required placeholder="your.email@example.com">
+            </div>
+
+            <div class="form-group">
+                <label class="form-label required-field">Rating</label>
+                <div class="rating-container">
+                    <div class="rating-option" onclick="selectRating(this, 5)">
+                        <input type="radio" name="rating" value="5" required> <span>⭐⭐⭐⭐⭐ Excellent</span>
+                    </div>
+                    <div class="rating-option" onclick="selectRating(this, 4)">
+                        <input type="radio" name="rating" value="4" required> <span>⭐⭐⭐⭐ Good</span>
+                    </div>
+                    <div class="rating-option" onclick="selectRating(this, 3)">
+                        <input type="radio" name="rating" value="3" required> <span>⭐⭐⭐ Average</span>
+                    </div>
+                    <div class="rating-option" onclick="selectRating(this, 2)">
+                        <input type="radio" name="rating" value="2" required> <span>⭐⭐ Poor</span>
+                    </div>
+                    <div class="rating-option" onclick="selectRating(this, 1)">
+                        <input type="radio" name="rating" value="1" required> <span>⭐ Very Poor</span>
+                    </div>
+                </div>
+            </div>
+
+            <div class="form-group">
+                <label class="form-label" for="comments">Comments</label>
+                <textarea id="comments" name="comments" class="form-input form-textarea" placeholder="Your feedback..."></textarea>
+            </div>
+
+            <button type="submit" class="submit-btn">Submit Feedback ✨</button>
+        </form>
+
+        <div id="successMessage" class="success-message"></div>
+    </div>
+
+    <script>
+        // Rating selection
+        function selectRating(el, val){
+            document.querySelectorAll('.rating-option').forEach(o=>o.classList.remove('selected'));
+            el.classList.add('selected');
+            el.querySelector('input').checked = true;
+        }
+
+        // AJAX form submission
+        document.getElementById('feedbackForm').addEventListener('submit', function(e){
+            e.preventDefault();  // Prevent page reload
+
+            const formData = new FormData(this);
+            const msg = document.getElementById('successMessage');
+            const submitBtn = this.querySelector('.submit-btn');
+
+            // Immediate feedback on press
+            if (submitBtn) {
+                submitBtn.disabled = true;
+                submitBtn.textContent = 'Submitting…';
+            }
+            msg.style.background = '#2563EB'; // blue info
+            msg.textContent = 'Submitting your feedback…';
+            msg.style.display = 'block';
+
+            fetch('/submit', {
+                method: 'POST',
+                body: formData
+            })
+            .then(async (res) => {
+                // Try to parse JSON; fall back to sensible defaults without exposing raw HTML
+                let data;
+                const contentType = res.headers.get('content-type') || '';
+                if (contentType.includes('application/json')) {
+                    try { data = await res.json(); }
+                    catch (_) { data = { status: res.ok ? 'success' : 'error', message: res.ok ? 'Thank you! Your feedback has been submitted.' : 'Received malformed JSON response.' }; }
+                } else if (contentType.includes('text/html')) {
+                    // Do not surface HTML; show a friendly message instead
+                    data = { status: res.ok ? 'success' : 'error', message: res.ok ? 'Thank you! Your feedback has been submitted.' : 'Request failed.' };
+                } else {
+                    const text = await res.text();
+                    const looksLikeHtml = /<[^>]+>/.test(text);
+                    data = { status: res.ok ? 'success' : 'error', message: looksLikeHtml ? (res.ok ? 'Thank you! Your feedback has been submitted.' : 'Request failed.') : (text || (res.ok ? 'Submitted successfully.' : 'Request failed.')) };
+                }
+                return { ok: res.ok, data };
+            })
+            .then(({ ok, data }) => {
+                if(data.status === "success"){
+                    msg.style.background = "#16A34A";
+                    this.reset();  // Reset form
+                    document.querySelectorAll('.rating-option').forEach(o=>o.classList.remove('selected'));
+                } else {
+                    msg.style.background = "#DC2626";
+                }
+
+                msg.textContent = data.message || (ok ? 'Thank you! Your feedback has been submitted.' : 'Something went wrong. Please try again.');
+                msg.style.display = 'block';
+                msg.scrollIntoView({ behavior: 'smooth' });
+
+                // Auto-hide message after 3 seconds
+                setTimeout(() => { msg.style.display = 'none'; }, 3000);
+            })
+            .catch(err => {
+                msg.style.background = '#DC2626';
+                msg.textContent = 'Something went wrong. Please try again.';
+                msg.style.display = 'block';
+            })
+            .finally(() => {
+                if (submitBtn) {
+                    submitBtn.disabled = false;
+                    submitBtn.textContent = 'Submit Feedback ✨';
+                }
+            });
+        });
+    </script>
+</body>
+</html>
